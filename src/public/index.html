@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bulk Sender Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .status-bar {
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .status-connected {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+        
+        .status-disconnected {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+        }
+        
+        .status-connecting {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+        }
+        
+        .qr-section {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .qr-code {
+            max-width: 280px;
+            margin: 20px auto;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .upload-card {
+            background: #f8f9fa;
+            border: 3px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .upload-card:hover {
+            border-color: #667eea;
+            background: #e7f1ff;
+            transform: translateY(-5px);
+        }
+        
+        .upload-card.uploaded {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+        
+        .upload-icon {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .upload-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .upload-status {
+            color: #666;
+            font-size: 0.95rem;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .message-section {
+            margin-bottom: 30px;
+        }
+        
+        .message-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 15px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+        
+        .message-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+       }
+       
+       .controls {
+           display: flex;
+           gap: 20px;
+           justify-content: center;
+           flex-wrap: wrap;
+           margin-bottom: 30px;
+       }
+       
+       .btn {
+           padding: 15px 30px;
+           border: none;
+           border-radius: 50px;
+           font-size: 16px;
+           font-weight: bold;
+           cursor: pointer;
+           transition: all 0.3s ease;
+           display: flex;
+           align-items: center;
+           gap: 10px;
+           text-decoration: none;
+           min-width: 160px;
+           justify-content: center;
+       }
+       
+       .btn:hover:not(:disabled) {
+           transform: translateY(-3px);
+           box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+       }
+       
+       .btn:disabled {
+           opacity: 0.6;
+           cursor: not-allowed;
+           transform: none;
+       }
+       
+       .btn-primary {
+           background: linear-gradient(135deg, #667eea, #764ba2);
+           color: white;
+       }
+       
+       .btn-danger {
+           background: linear-gradient(135deg, #f44336, #d32f2f);
+           color: white;
+       }
+       
+       .progress-section {
+           display: none;
+       }
+       
+       .progress-bar-container {
+           background: #e9ecef;
+           border-radius: 25px;
+           height: 25px;
+           overflow: hidden;
+           margin-bottom: 20px;
+           position: relative;
+       }
+       
+       .progress-bar {
+           background: linear-gradient(90deg, #4CAF50, #45a049);
+           height: 100%;
+           width: 0%;
+           transition: width 0.5s ease;
+           border-radius: 25px;
+           position: relative;
+       }
+       
+       .progress-text {
+           position: absolute;
+           top: 50%;
+           left: 50%;
+           transform: translate(-50%, -50%);
+           color: white;
+           font-weight: bold;
+           font-size: 14px;
+           text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+       }
+       
+       .stats-grid {
+           display: grid;
+           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+           gap: 20px;
+           margin-bottom: 20px;
+       }
+       
+       .stat-card {
+           background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+           padding: 25px;
+           border-radius: 15px;
+           text-align: center;
+           border-left: 5px solid #667eea;
+       }
+       
+       .stat-number {
+           font-size: 2.5rem;
+           font-weight: bold;
+           color: #667eea;
+           margin-bottom: 8px;
+       }
+       
+       .stat-label {
+           color: #6c757d;
+           font-weight: 500;
+       }
+       
+       .logs {
+           background: #1a1a1a;
+           color: #00ff41;
+           padding: 20px;
+           border-radius: 15px;
+           font-family: 'Courier New', monospace;
+           font-size: 14px;
+           max-height: 400px;
+           overflow-y: auto;
+           margin-top: 20px;
+       }
+       
+       .log-entry {
+           margin-bottom: 8px;
+           padding: 5px 10px;
+           border-radius: 5px;
+           border-left: 3px solid transparent;
+       }
+       
+       .log-success {
+           color: #4CAF50;
+           border-left-color: #4CAF50;
+       }
+       
+       .log-error {
+           color: #f44336;
+           border-left-color: #f44336;
+       }
+       
+       .log-warning {
+           color: #ff9800;
+           border-left-color: #ff9800;
+       }
+       
+       .log-info {
+           color: #2196F3;
+           border-left-color: #2196F3;
+       }
+       
+       .hidden {
+           display: none !important;
+       }
+       
+       .pulse {
+           animation: pulse 2s infinite;
+       }
+       
+       @keyframes pulse {
+           0%, 100% { opacity: 1; }
+           50% { opacity: 0.7; }
+       }
+       
+       .fade-in {
+           animation: fadeIn 0.6s ease-out;
+       }
+       
+       @keyframes fadeIn {
+           from { opacity: 0; transform: translateY(20px); }
+           to { opacity: 1; transform: translateY(0); }
+       }
+       
+       @media (max-width: 768px) {
+           .upload-grid {
+               grid-template-columns: 1fr;
+           }
+           
+           .controls {
+               flex-direction: column;
+               align-items: center;
+           }
+           
+           .btn {
+               width: 100%;
+               max-width: 300px;
+           }
+       }
+       
+       .tooltip {
+           position: relative;
+           cursor: help;
+       }
+       
+       .tooltip:hover::after {
+           content: attr(data-tooltip);
+           position: absolute;
+           bottom: 125%;
+           left: 50%;
+           transform: translateX(-50%);
+           background: rgba(0,0,0,0.8);
+           color: white;
+           padding: 8px 12px;
+           border-radius: 8px;
+           font-size: 12px;
+           white-space: nowrap;
+           z-index: 1000;
+       }
+   </style>
+</head>
+<body>
+   <div class="container">
+       <div class="header">
+           <h1>📱 WhatsApp Bulk Sender Pro</h1>
+           <p>Sistema profissional de envio em massa com validação automática</p>
+       </div>
+
+       <!-- Status do WhatsApp -->
+       <div class="card">
+           <div id="status-bar" class="status-bar status-connecting">
+               🔄 Conectando ao WhatsApp...
+           </div>
+
+           <div id="qr-section" class="qr-section">
+               <h2>📱 Autenticação WhatsApp</h2>
+               <p style="margin-bottom: 20px; color: #666;">
+                   Abra o WhatsApp → ⚙️ Configurações → 💻 Dispositivos conectados → Conectar dispositivo
+               </p>
+               <div id="qr-container"></div>
+           </div>
+       </div>
+
+       <!-- Configuração da Campanha -->
+       <div class="card">
+           <h2 style="margin-bottom: 25px;">⚙️ Configurar Campanha</h2>
+           
+           <div class="upload-grid">
+               <div class="upload-card" onclick="document.getElementById('csv-input').click()" data-tooltip="Arquivo CSV com coluna 'number' contendo números brasileiros">
+                   <div class="upload-icon">📊</div>
+                   <div class="upload-title">Upload CSV</div>
+                   <div class="upload-status" id="csv-status">
+                       Selecione arquivo CSV com números
+                   </div>
+                   <input type="file" id="csv-input" class="file-input" accept=".csv" onchange="uploadCSV(this)">
+               </div>
+
+               <div class="upload-card" onclick="document.getElementById('image-input').click()" data-tooltip="Imagem que será enviada junto com a mensagem">
+                   <div class="upload-icon">🖼️</div>
+                   <div class="upload-title">Upload Imagem</div>
+                   <div class="upload-status" id="image-status">
+                       Selecione imagem (JPG, PNG, GIF)
+                   </div>
+                   <input type="file" id="image-input" class="file-input" accept="image/*" onchange="uploadImage(this)">
+               </div>
+           </div>
+
+           <div class="message-section">
+               <h3 style="margin-bottom: 15px;">✍️ Mensagem</h3>
+               <textarea 
+                   id="message-text" 
+                   class="message-textarea" 
+                   placeholder="Digite a mensagem que será enviada junto com a imagem para todos os contatos..."
+                   maxlength="1000"
+               ></textarea>
+               <div style="text-align: right; margin-top: 5px; color: #666; font-size: 12px;">
+                   <span id="char-count">0</span>/1000 caracteres
+               </div>
+           </div>
+
+           <div class="controls">
+               <button id="start-btn" class="btn btn-primary" onclick="startCampaign()" disabled>
+                   🚀 Iniciar Campanha
+               </button>
+               <button id="stop-btn" class="btn btn-danger" onclick="stopCampaign()" disabled style="display: none;">
+                   🛑 Parar Campanha
+               </button>
+           </div>
+       </div>
+
+       <!-- Progresso da Campanha -->
+       <div id="progress-section" class="card progress-section">
+           <h2 style="margin-bottom: 20px;">📈 Progresso da Campanha</h2>
+           
+           <div class="progress-bar-container">
+               <div id="progress-bar" class="progress-bar"></div>
+               <div id="progress-text" class="progress-text">0%</div>
+           </div>
+           
+           <div class="stats-grid">
+               <div class="stat-card">
+                   <div id="stat-sent" class="stat-number">0</div>
+                   <div class="stat-label">Enviados</div>
+               </div>
+               <div class="stat-card">
+                   <div id="stat-failed" class="stat-number">0</div>
+                   <div class="stat-label">Falharam</div>
+               </div>
+               <div class="stat-card">
+                   <div id="stat-total" class="stat-number">0</div>
+                   <div class="stat-label">Total</div>
+               </div>
+               <div class="stat-card">
+                   <div id="stat-progress" class="stat-number">0%</div>
+                   <div class="stat-label">Concluído</div>
+               </div>
+           </div>
+
+           <div id="logs" class="logs"></div>
+       </div>
+   </div>
+
+   <script>
+       // Inicialização
+       const socket = io();
+       let csvUploaded = false;
+       let imageUploaded = false;
+       let isConnected = false;
+       let campaignRunning = false;
+
+       // Elementos DOM
+       const statusBar = document.getElementById('status-bar');
+       const qrSection = document.getElementById('qr-section');
+       const qrContainer = document.getElementById('qr-container');
+       const csvStatus = document.getElementById('csv-status');
+       const imageStatus = document.getElementById('image-status');
+       const messageText = document.getElementById('message-text');
+       const startBtn = document.getElementById('start-btn');
+       const stopBtn = document.getElementById('stop-btn');
+       const progressSection = document.getElementById('progress-section');
+       const progressBar = document.getElementById('progress-bar');
+       const progressText = document.getElementById('progress-text');
+       const logs = document.getElementById('logs');
+
+       // Contador de caracteres
+       messageText.addEventListener('input', function() {
+           const count = this.value.length;
+           document.getElementById('char-count').textContent = count;
+           updateStartButton();
+       });
+
+       // Socket eventos
+       socket.on('connection-status', function(data) {
+           isConnected = data.status === 'connected';
+           updateConnectionStatus(data.status);
+           updateStartButton();
+       });
+
+       socket.on('qr-code', function(data) {
+           if (data.qr) {
+               qrContainer.innerHTML = `<img src="${data.qr}" class="qr-code" alt="QR Code">`;
+               addLog('📱 QR Code gerado - escaneie com seu WhatsApp', 'info');
+           } else {
+               qrContainer.innerHTML = '<p style="color: #4CAF50; font-size: 1.2rem;">✅ WhatsApp conectado com sucesso!</p>';
+           }
+       });
+
+       socket.on('campaign-started', function(data) {
+           campaignRunning = true;
+           document.getElementById('stat-total').textContent = data.total;
+           progressSection.style.display = 'block';
+           progressSection.classList.add('fade-in');
+           startBtn.style.display = 'none';
+           stopBtn.style.display = 'flex';
+           addLog(`🚀 Campanha iniciada para ${data.total} contatos`, 'success');
+       });
+
+       socket.on('campaign-progress', function(data) {
+           updateProgress(data);
+           const status = data.error ? 'error' : 'success';
+           const message = data.error 
+               ? `❌ Falha: ${data.current} - ${data.error}`
+               : `✅ Enviado: ${data.current}`;
+           addLog(message, status);
+       });
+
+       socket.on('campaign-finished', function(data) {
+           campaignRunning = false;
+           startBtn.style.display = 'flex';
+           stopBtn.style.display = 'none';
+           updateStartButton();
+           
+           const duration = Math.floor(data.duration / 60);
+           addLog(`🏁 Campanha finalizada! Enviados: ${data.sent}, Falhas: ${data.failed}, Duração: ${duration}min`, 'success');
+       });
+
+       socket.on('campaign-stopped', function() {
+           campaignRunning = false;
+           startBtn.style.display = 'flex';
+           stopBtn.style.display = 'none';
+           updateStartButton();
+           addLog('🛑 Campanha interrompida pelo usuário', 'warning');
+       });
+
+       socket.on('logged-out', function() {
+           qrContainer.innerHTML = '<p style="color: #f44336;">❌ Sessão expirada. Recarregue a página para gerar novo QR Code</p>';
+           addLog('🚪 Sessão do WhatsApp expirada', 'error');
+       });
+
+       socket.on('error', function(data) {
+           addLog('❌ Erro: ' + data.message, 'error');
+       });
+
+       // Funções de upload
+       async function uploadCSV(input) {
+           const file = input.files[0];
+           if (!file) return;
+
+           const formData = new FormData();
+           formData.append('csv', file);
+
+           try {
+               csvStatus.textContent = 'Processando...';
+               document.querySelector('#csv-input').closest('.upload-card').classList.remove('uploaded');
+
+               const response = await fetch('/upload-csv', {
+                   method: 'POST',
+                   body: formData
+               });
+
+               const result = await response.json();
+
+               if (result.success) {
+                   csvStatus.textContent = `✅ ${result.validContacts} números válidos carregados`;
+                   document.querySelector('#csv-input').closest('.upload-card').classList.add('uploaded');
+                   csvUploaded = true;
+                   addLog(`📊 CSV processado: ${result.validContacts} válidos, ${result.invalidContacts} inválidos`, 'success');
+               } else {
+                   csvStatus.textContent = '❌ ' + result.error;
+                   addLog('❌ Erro no CSV: ' + result.error, 'error');
+               }
+           } catch (error) {
+               csvStatus.textContent = '❌ Erro ao processar arquivo';
+               addLog('❌ Erro ao fazer upload do CSV: ' + error.message, 'error');
+           }
+
+           updateStartButton();
+       }
+
+       async function uploadImage(input) {
+           const file = input.files[0];
+           if (!file) return;
+
+           const formData = new FormData();
+           formData.append('image', file);
+
+           try {
+               imageStatus.textContent = 'Enviando...';
+               document.querySelector('#image-input').closest('.upload-card').classList.remove('uploaded');
+
+               const response = await fetch('/upload-image', {
+                   method: 'POST',
+                   body: formData
+               });
+
+               const result = await response.json();
+
+               if (result.success) {
+                   imageStatus.textContent = `✅ ${file.name} (${result.size})`;
+                   document.querySelector('#image-input').closest('.upload-card').classList.add('uploaded');
+                   imageUploaded = true;
+                   addLog(`🖼️ Imagem carregada: ${file.name} (${result.size})`, 'success');
+               } else {
+                   imageStatus.textContent = '❌ ' + result.error;
+                   addLog('❌ Erro na imagem: ' + result.error, 'error');
+               }
+           } catch (error) {
+               imageStatus.textContent = '❌ Erro ao enviar imagem';
+               addLog('❌ Erro ao fazer upload da imagem: ' + error.message, 'error');
+           }
+
+           updateStartButton();
+       }
+
+       // Controle da campanha
+       async function startCampaign() {
+           const message = messageText.value.trim();
+
+           if (!message) {
+               alert('Por favor, digite uma mensagem');
+               return;
+           }
+
+           try {
+               const response = await fetch('/start-campaign', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json'
+                   },
+                   body: JSON.stringify({ message })
+               });
+
+               const result = await response.json();
+
+               if (!result.success) {
+                   alert('Erro: ' + result.error);
+                   addLog('❌ Erro ao iniciar: ' + result.error, 'error');
+               }
+           } catch (error) {
+               alert('Erro ao iniciar campanha: ' + error.message);
+               addLog('❌ Erro de rede: ' + error.message, 'error');
+           }
+       }
+
+       async function stopCampaign() {
+           if (confirm('Tem certeza que deseja parar a campanha?')) {
+               try {
+                   const response = await fetch('/stop-campaign', {
+                       method: 'POST'
+                   });
+
+                   const result = await response.json();
+                   if (!result.success) {
+                       alert('Erro ao parar campanha: ' + result.error);
+                   }
+               } catch (error) {
+                   alert('Erro: ' + error.message);
+               }
+           }
+       }
+
+       // Funções auxiliares
+       function updateConnectionStatus(status) {
+           statusBar.classList.remove('status-connected', 'status-disconnected', 'status-connecting');
+
+           if (status === 'connected') {
+               statusBar.classList.add('status-connected');
+               statusBar.textContent = '✅ WhatsApp Conectado';
+               qrSection.style.display = 'none';
+           } else if (status === 'disconnected') {
+               statusBar.classList.add('status-disconnected');
+               statusBar.textContent = '❌ WhatsApp Desconectado';
+               qrSection.style.display = 'block';
+           } else {
+               statusBar.classList.add('status-connecting');
+               statusBar.textContent = '🔄 Conectando...';
+               qrSection.style.display = 'block';
+           }
+       }
+
+       function updateStartButton() {
+           const canStart = isConnected && csvUploaded && imageUploaded && 
+                           messageText.value.trim().length > 0 && !campaignRunning;
+           startBtn.disabled = !canStart;
+       }
+
+       function updateProgress(data) {
+           const progress = data.progress || 0;
+           progressBar.style.width = progress + '%';
+           progressText.textContent = progress + '%';
+
+           document.getElementById('stat-sent').textContent = data.sent;
+           document.getElementById('stat-failed').textContent = data.failed;
+           document.getElementById('stat-progress').textContent = progress + '%';
+       }
+
+       function addLog(message, type = 'info') {
+           const timestamp = new Date().toLocaleTimeString();
+           const logEntry = document.createElement('div');
+           logEntry.className = `log-entry log-${type}`;
+           logEntry.textContent = `[${timestamp}] ${message}`;
+           logs.appendChild(logEntry);
+           logs.scrollTop = logs.scrollHeight;
+       }
+
+       // Log inicial
+       addLog('🚀 Sistema iniciado - aguardando conexão WhatsApp...', 'info');
+   </script>
+</body>
+</html>
