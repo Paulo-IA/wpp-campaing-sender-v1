@@ -630,6 +630,47 @@
 
            updateStartButton();
        }
+       
+       let audioUploaded = false;
+       const audioStatus = document.getElementById('audio-status');
+
+       async function uploadAudio(input) {
+           const file = input.files[0];
+           if (!file) return;
+
+           const formData = new FormData();
+           formData.append('audio', file);
+
+           try {
+               audioStatus.textContent = 'Enviando...';
+               document.querySelector('#audio-input').closest('.upload-card').classList.remove('uploaded');
+               
+               // Desabilita o upload de imagem ao carregar áudio e vice-versa
+               document.querySelector('#image-input').disabled = true;
+
+               const response = await fetch('/upload-audio', {
+                   method: 'POST',
+                   body: formData
+               });
+
+               const result = await response.json();
+
+               if (result.success) {
+                   audioStatus.textContent = `✅ ${file.name} (${result.size})`;
+                   document.querySelector('#audio-input').closest('.upload-card').classList.add('uploaded');
+                   audioUploaded = true;
+                   addLog(`🔊 Áudio carregado: ${file.name} (${result.size})`, 'success');
+               } else {
+                   audioStatus.textContent = '❌ ' + result.error;
+                   addLog('❌ Erro no áudio: ' + result.error, 'error');
+               }
+           } catch (error) {
+               audioStatus.textContent = '❌ Erro ao enviar áudio';
+               addLog('❌ Erro ao fazer upload do áudio: ' + error.message, 'error');
+           }
+           
+           updateStartButton();
+       }
 
        // Controle da campanha
        async function startCampaign() {

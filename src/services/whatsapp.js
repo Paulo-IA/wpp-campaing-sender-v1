@@ -211,47 +211,46 @@ export class WhatsAppService {
       if (!result?.exists) {
         throw new Error(`Número não existe no WhatsApp`);
       }
-
+      
+      // Cria o objeto de mensagem
+      let messageObject = {};
+      
+      // Prioriza imagem se existir
       if (imagePath && fs.existsSync(imagePath)) {
         const imageBuffer = fs.readFileSync(imagePath);
         const extension = path.extname(imagePath).toLowerCase();
-
+        
         let mimetype = 'image/jpeg';
         if (extension === '.png') mimetype = 'image/png';
         else if (extension === '.gif') mimetype = 'image/gif';
         else if (extension === '.webp') mimetype = 'image/webp';
-
-        messages.push({
+        
+        messageObject = {
           image: imageBuffer,
-          caption: messageText,
+          caption: message,
           mimetype: mimetype
-        });
-      } else if (messageText && messageText.trim() !== '') {
-        messages.push({ text: messageText });
-      }
-
-      if (audioPath && fs.existsSync(audioPath)) {
+        };
+      } 
+      // Se não houver imagem, mas houver áudio
+      else if (audioPath && fs.existsSync(audioPath)) {
         const audioBuffer = fs.readFileSync(audioPath);
-        messages.push({
+        messageObject = {
           audio: audioBuffer,
           mimetype: 'audio/mp4',
-          ptt: false
-        });
+          ptt: true // Define como áudio de voz
+        };
+      }
+      // Se não houver imagem nem áudio, envia apenas texto
+      else if (message && message.trim() !== '') {
+        messageObject = {
+          text: message
+        };
+      } else {
+        throw new Error('Mensagem, imagem ou áudio não definidos para envio.');
       }
 
-      const imageBuffer = fs.readFileSync(imagePath);
-      const extension = path.extname(imagePath).toLowerCase();
-      
-      let mimetype = 'image/jpeg';
-      if (extension === '.png') mimetype = 'image/png';
-      else if (extension === '.gif') mimetype = 'image/gif';
-      else if (extension === '.webp') mimetype = 'image/webp';
-
-      await this.sock.sendMessage(jid, {
-        image: imageBuffer,
-        caption: messageText,
-        mimetype: mimetype
-      });
+      // Envia a mensagem usando o objeto criado
+      await this.sock.sendMessage(jid, messageObject);
 
       return true;
 
