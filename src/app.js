@@ -58,6 +58,7 @@ const csvService = new CSVService();
 // Variáveis globais para armazenar dados da sessão
 let uploadedCSV = null;
 let uploadedImage = null;
+let uploadedAudio = null;
 
 // Rotas
 app.get('/', (req, res) => {
@@ -120,6 +121,32 @@ app.post('/upload-image', upload.single('image'), (req, res) => {
   }
 });
 
+app.post('/upload-audio', upload.single('audio'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum áudio enviado' });
+    }
+
+    uploadedAudio = {
+      path: req.file.path,
+      filename: req.file.filename,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    };
+
+    res.json({ 
+      success: true, 
+      message: 'Áudio carregado com sucesso',
+      filename: req.file.filename,
+      size: (req.file.size / 1024 / 1024).toFixed(2) + 'MB'
+    });
+  } catch (error) {
+    console.error('Erro ao processar áudio:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 app.post('/start-campaign', async (req, res) => {
   try {
     const { message } = req.body;
@@ -128,8 +155,8 @@ app.post('/start-campaign', async (req, res) => {
       return res.status(400).json({ error: 'CSV não carregado' });
     }
 
-    if (!uploadedImage) {
-      return res.status(400).json({ error: 'Imagem não carregada' });
+    if (!uploadedImage && !uploadedAudio) {
+      return res.status(400).json({ error: 'Imagem ou áudio não carregado' });
     }
 
     if (!message || message.trim().length === 0) {
@@ -141,7 +168,7 @@ app.post('/start-campaign', async (req, res) => {
     }
 
     // Inicia a campanha
-    await whatsappService.startBulkSend(uploadedCSV.contacts, uploadedImage.path, message.trim());
+    await whatsappService.startBulkSend(uploadedCSV.contacts, uploadedImage?.path, uploadedAudio?.path, message.trim());
     
     res.json({ 
       success: true, 

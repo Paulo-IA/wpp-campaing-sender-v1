@@ -4,9 +4,11 @@
   "description": "WhatsApp bulk message sender with Baileys",
   "main": "src/app.js",
   "type": "module",
+  "bin": "src/app.js",
   "scripts": {
     "start": "rm -rf auth_info_baileys && node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "build": "nexe src/app.js --build"
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
@@ -19,7 +21,9 @@
     "socket.io": "^4.7.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nexe": "^5.0.0-beta.4",
+    "nodemon": "^3.1.10",
+    "pkg": "^5.8.1"
   },
   "engines": {
     "node": ">=18.0.0"

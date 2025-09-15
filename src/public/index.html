@@ -392,7 +392,17 @@
                        Selecione arquivo CSV com números
                    </div>
                    <input type="file" id="csv-input" class="file-input" accept=".csv" onchange="uploadCSV(this)">
-               </div>
+                </div>
+                
+                <div class="upload-card" onclick="document.getElementById('audio-input').click()" data-tooltip="Áudio a ser enviado (MP3, M4A ou OGG)">
+                    <div class="upload-icon">🔊</div>
+                    <div class="upload-title">Upload Áudio</div>
+                    <div class="upload-status" id="audio-status">
+                        Selecione arquivo de áudio (MP3, M4A, OGG)
+                    </div>
+                    <input type="file" id="audio-input" class="file-input" accept="audio/*" onchange="uploadAudio(this)">
+                </div>
+
 
                <div class="upload-card" onclick="document.getElementById('image-input').click()" data-tooltip="Imagem que será enviada junto com a mensagem">
                    <div class="upload-icon">🖼️</div>

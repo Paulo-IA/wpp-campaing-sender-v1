@@ -116,7 +116,7 @@ export class WhatsAppService {
     });
   }
 
-  async startBulkSend(contacts, imagePath, message) {
+  async startBulkSend(contacts, imagePath, audioPath, message) {
     if (!this.isConnected) {
       throw new Error('WhatsApp não está conectado');
     }
@@ -151,7 +151,7 @@ export class WhatsAppService {
       try {
         console.log(`📤 Enviando para: ${contact.number} (${i + 1}/${shuffledContacts.length})`);
         
-        await this.sendMessage(contact, imagePath, message);
+        await this.sendMessage(contact, imagePath, audioPath, message);
         this.currentCampaign.sent++;
         
         this.io.emit('campaign-progress', {
@@ -202,21 +202,41 @@ export class WhatsAppService {
     });
   }
 
-  async sendMessage(contact, imagePath, messageText) {
+  async sendMessage(contact, imagePath, audioPath, message) {
     try {
-      // Usar o número já validado
       const phoneNumber = contact.number;
       const jid = phoneNumber + '@s.whatsapp.net';
 
-      // Verifica se existe no WhatsApp
       const [result] = await this.sock.onWhatsApp(jid);
       if (!result?.exists) {
         throw new Error(`Número não existe no WhatsApp`);
       }
 
-      // Lê a imagem
-      if (!fs.existsSync(imagePath)) {
-        throw new Error('Arquivo de imagem não encontrado');
+      if (imagePath && fs.existsSync(imagePath)) {
+        const imageBuffer = fs.readFileSync(imagePath);
+        const extension = path.extname(imagePath).toLowerCase();
+
+        let mimetype = 'image/jpeg';
+        if (extension === '.png') mimetype = 'image/png';
+        else if (extension === '.gif') mimetype = 'image/gif';
+        else if (extension === '.webp') mimetype = 'image/webp';
+
+        messages.push({
+          image: imageBuffer,
+          caption: messageText,
+          mimetype: mimetype
+        });
+      } else if (messageText && messageText.trim() !== '') {
+        messages.push({ text: messageText });
+      }
+
+      if (audioPath && fs.existsSync(audioPath)) {
+        const audioBuffer = fs.readFileSync(audioPath);
+        messages.push({
+          audio: audioBuffer,
+          mimetype: 'audio/mp4',
+          ptt: false
+        });
       }
 
       const imageBuffer = fs.readFileSync(imagePath);
@@ -227,7 +247,6 @@ export class WhatsAppService {
       else if (extension === '.gif') mimetype = 'image/gif';
       else if (extension === '.webp') mimetype = 'image/webp';
 
-      // Envia mensagem com imagem e texto
       await this.sock.sendMessage(jid, {
         image: imageBuffer,
         caption: messageText,
