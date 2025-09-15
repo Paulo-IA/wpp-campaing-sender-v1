@@ -40,36 +40,34 @@ export class CSVService {
     });
   }
 
-cleanPhoneNumber(phoneStr) {
+  cleanPhoneNumber(phoneStr) {
     if (!phoneStr) return null;
-
+    
     // Remove todos os caracteres não numéricos
     let cleaned = phoneStr.toString().replace(/\D/g, '');
-
-    // Se o número já tem o formato DDI + DDD + 9 + 8 dígitos
+    
+    // Remove + do início se houver
+    if (phoneStr.toString().startsWith('+')) {
+      // Já foi limpo acima, só precisa garantir que tem 13 dígitos
+    }
+    
+    // Verifica se tem o formato correto (13 dígitos: 55 + DDD + número)
     if (cleaned.length === 13 && cleaned.startsWith('55')) {
       return cleaned;
     }
-
-    // Se tem 11 dígitos (DDD + 9 + 8 dígitos)
+    
+    // Se tem 11 dígitos (DDD + número), adiciona 55
     if (cleaned.length === 11) {
       return '55' + cleaned;
     }
-
-    // Se tem 10 dígitos (DDD + 8 dígitos), adiciona o 9 no lugar correto
+    
+    // Se tem 10 dígitos (DDD + número sem 9), adiciona 55 e 9
     if (cleaned.length === 10) {
-      // DDD é os primeiros 2 dígitos
       const ddd = cleaned.substring(0, 2);
-      // O restante é o número de 8 dígitos
       const number = cleaned.substring(2);
-
-      // Adiciona 55 (código do país) + DDD + '9' + número de 8 dígitos
       return '55' + ddd + '9' + number;
     }
-
-    // Se o número de telefone já tiver o 9, com 9 dígitos, ele será tratado como 11 dígitos,
-    // com o ddd e o 55 já inseridos, por isso não precisa de uma nova lógica
-
+    
     return null; // Número inválido
   }
 
@@ -96,29 +94,52 @@ cleanPhoneNumber(phoneStr) {
 
   isValidBrazilianNumber(number) {
     if (!number || typeof number !== 'string') return false;
-
-    // Garante que o número tem 13 dígitos
+    
+    // Deve ter exatamente 13 dígitos
     if (number.length !== 13) return false;
-
-    // Garante que começa com 55 (Brasil)
+    
+    // Deve começar com 55 (Brasil)
     if (!number.startsWith('55')) return false;
-
-    // Garante que o 5º dígito é 9 (padrão de celular brasileiro)
-    if (number.charAt(4) !== '9') return false;
-
-    // Extrai o DDD
-    const ddd = parseInt(number.substring(2, 4), 10);
-    // Verifica se o DDD é válido (11-99)
+    
+    // Extrai DDD (deve estar entre 11-99)
+    const ddd = parseInt(number.substring(2, 4));
     if (ddd < 11 || ddd > 99) return false;
-
-    // Verifica se o DDD é um dos DDDs válidos do Brasil
+    
+    // O 5º dígito deve ser 9 (celular)
+    const fifthDigit = number.charAt(4);
+    if (fifthDigit !== '9') return false;
+    
+    // Verifica DDDs válidos do Brasil
     const validDDDs = [
-      11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 24, 27, 28, 31, 32, 33, 34, 35, 37, 38,
-      41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 53, 54, 55, 61, 62, 63, 64, 65, 66, 67, 68,
-      69, 71, 73, 74, 75, 77, 79, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95,
-      96, 97, 98, 99
+      11, 12, 13, 14, 15, 16, 17, 18, 19, // SP
+      21, 22, 24, // RJ/ES
+      27, 28, // ES
+      31, 32, 33, 34, 35, 37, 38, // MG
+      41, 42, 43, 44, 45, 46, // PR
+      47, 48, 49, // SC
+      51, 53, 54, 55, // RS
+      61, // DF
+      62, 64, // GO/TO
+      63, // TO
+      65, 66, // MT
+      67, // MS
+      68, // AC
+      69, // RO
+      71, 73, 74, 75, 77, // BA
+      79, // SE
+      81, 87, // PE
+      82, // AL
+      83, // PB
+      84, // RN
+      85, 88, // CE
+      86, 89, // PI
+      91, 93, 94, // PA
+      92, 97, // AM
+      95, // RR
+      96, // AP
+      98, 99  // MA
     ];
-
+    
     return validDDDs.includes(ddd);
   }
 
