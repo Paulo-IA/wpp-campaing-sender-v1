@@ -630,7 +630,7 @@
 
            updateStartButton();
        }
-       
+
        let audioUploaded = false;
        const audioStatus = document.getElementById('audio-status');
 
@@ -644,9 +644,6 @@
            try {
                audioStatus.textContent = 'Enviando...';
                document.querySelector('#audio-input').closest('.upload-card').classList.remove('uploaded');
-               
-               // Desabilita o upload de imagem ao carregar áudio e vice-versa
-               document.querySelector('#image-input').disabled = true;
 
                const response = await fetch('/upload-audio', {
                    method: 'POST',
@@ -739,7 +736,7 @@
        }
 
        function updateStartButton() {
-           const canStart = isConnected && csvUploaded && imageUploaded && 
+           const canStart = isConnected && csvUploaded && (imageUploaded || audioUploaded) && 
                            messageText.value.trim().length > 0 && !campaignRunning;
            startBtn.disabled = !canStart;
        }

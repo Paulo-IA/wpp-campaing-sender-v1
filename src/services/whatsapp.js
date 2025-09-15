@@ -211,11 +211,7 @@ export class WhatsAppService {
       if (!result?.exists) {
         throw new Error(`Número não existe no WhatsApp`);
       }
-      
-      // Cria o objeto de mensagem
-      let messageObject = {};
-      
-      // Prioriza imagem se existir
+
       if (imagePath && fs.existsSync(imagePath)) {
         const imageBuffer = fs.readFileSync(imagePath);
         const extension = path.extname(imagePath).toLowerCase();
@@ -225,32 +221,27 @@ export class WhatsAppService {
         else if (extension === '.gif') mimetype = 'image/gif';
         else if (extension === '.webp') mimetype = 'image/webp';
         
-        messageObject = {
+        await this.sock.sendMessage(jid, {
           image: imageBuffer,
           caption: message,
           mimetype: mimetype
-        };
-      } 
-      // Se não houver imagem, mas houver áudio
-      else if (audioPath && fs.existsSync(audioPath)) {
-        const audioBuffer = fs.readFileSync(audioPath);
-        messageObject = {
-          audio: audioBuffer,
-          mimetype: 'audio/mp4',
-          ptt: true // Define como áudio de voz
-        };
-      }
-      // Se não houver imagem nem áudio, envia apenas texto
-      else if (message && message.trim() !== '') {
-        messageObject = {
-          text: message
-        };
-      } else {
-        throw new Error('Mensagem, imagem ou áudio não definidos para envio.');
+        });
       }
 
-      // Envia a mensagem usando o objeto criado
-      await this.sock.sendMessage(jid, messageObject);
+      if (audioPath && fs.existsSync(audioPath)) {
+        const audioBuffer = fs.readFileSync(audioPath);
+        await this.sock.sendMessage(jid, {
+          audio: audioBuffer,
+          mimetype: 'audio/mp4',
+          ptt: true
+        });
+      }
+
+      if (!imagePath && !audioPath && message && message.trim() !== '') {
+        await this.sock.sendMessage(jid, {
+          text: message
+        });
+      }
 
       return true;
 
