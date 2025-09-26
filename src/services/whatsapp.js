@@ -1,9 +1,9 @@
-import makeWASocket, { 
-  DisconnectReason, 
+import makeWASocket, {
+  DisconnectReason,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   isJidBroadcast,
-  isJidGroup 
+  isJidGroup
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
@@ -24,7 +24,7 @@ export class WhatsAppService {
   async initialize() {
     try {
       console.log('🔄 Inicializando WhatsApp...');
-      
+
       const { version, isLatest } = await fetchLatestBaileysVersion();
       console.log(`📱 Usando Baileys v${version.join('.')}, latest: ${isLatest}`);
 
@@ -48,7 +48,7 @@ export class WhatsAppService {
     } catch (error) {
       console.error('❌ Erro ao inicializar WhatsApp:', error);
       this.io.emit('error', { message: 'Erro ao inicializar: ' + error.message });
-      
+
       // Retry após 5 segundos
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
@@ -79,15 +79,15 @@ export class WhatsAppService {
       if (connection === 'close') {
         this.isConnected = false;
         this.io.emit('connection-status', { status: 'disconnected' });
-        
-        const shouldReconnect = (lastDisconnect?.error instanceof Boom) 
+
+        const shouldReconnect = (lastDisconnect?.error instanceof Boom)
           ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
           : true;
 
         if (lastDisconnect?.error instanceof Boom) {
           const reason = lastDisconnect.error.output.statusCode;
           console.log('❌ Conexão fechada:', DisconnectReason[reason] || reason);
-          
+
           if (reason === DisconnectReason.loggedOut) {
             console.log('🚪 Usuário deslogado, necessário novo QR Code');
             this.io.emit('logged-out');
@@ -100,7 +100,7 @@ export class WhatsAppService {
           console.log(`🔄 Reconectando... (${this.retryCount}/${this.maxRetries})`);
           setTimeout(() => this.initialize(), 3000);
         }
-        
+
       } else if (connection === 'open') {
         console.log('✅ WhatsApp conectado com sucesso!');
         this.isConnected = true;
@@ -116,7 +116,7 @@ export class WhatsAppService {
     });
   }
 
-  async startBulkSend(contacts, imagePath, audioPath, message) {
+  async startBulkSend(contacts, imagePath, audioPath, videoPath, message) {
     if (!this.isConnected) {
       throw new Error('WhatsApp não está conectado');
     }
@@ -129,6 +129,8 @@ export class WhatsAppService {
     this.currentCampaign = {
       contacts,
       imagePath,
+      audioPath,
+      videoPath,
       message,
       sent: 0,
       failed: 0,
@@ -147,13 +149,13 @@ export class WhatsAppService {
 
     for (let i = 0; i < shuffledContacts.length && this.isSending; i++) {
       const contact = shuffledContacts[i];
-      
+
       try {
         console.log(`📤 Enviando para: ${contact.number} (${i + 1}/${shuffledContacts.length})`);
-        
-        await this.sendMessage(contact, imagePath, audioPath, message);
+
+        await this.sendMessage(contact, imagePath, audioPath, videoPath, message);
         this.currentCampaign.sent++;
-        
+
         this.io.emit('campaign-progress', {
           sent: this.currentCampaign.sent,
           failed: this.currentCampaign.failed,
@@ -167,7 +169,7 @@ export class WhatsAppService {
       } catch (error) {
         console.error(`❌ Falha ao enviar para ${contact.number}:`, error.message);
         this.currentCampaign.failed++;
-        
+
         this.io.emit('campaign-progress', {
           sent: this.currentCampaign.sent,
           failed: this.currentCampaign.failed,
@@ -181,7 +183,7 @@ export class WhatsAppService {
       // Delay aleatório entre 30-60 segundos (exceto no último)
       if (i < shuffledContacts.length - 1 && this.isSending) {
         const delay = Math.floor(Math.random() * (60000 - 30000) + 30000);
-        console.log(`⏳ Aguardando ${Math.round(delay/1000)}s antes do próximo envio...`);
+        console.log(`⏳ Aguardando ${Math.round(delay / 1000)}s antes do próximo envio...`);
         await this.sleep(delay);
       }
     }
@@ -189,11 +191,11 @@ export class WhatsAppService {
     this.isSending = false;
     const endTime = new Date();
     const duration = Math.round((endTime - this.currentCampaign.startTime) / 1000);
-    
+
     console.log('🏁 Campanha finalizada!');
     console.log(`📊 Enviados: ${this.currentCampaign.sent}, Falhas: ${this.currentCampaign.failed}`);
     console.log(`⏱️ Duração: ${Math.floor(duration / 60)}min ${duration % 60}s`);
-    
+
     this.io.emit('campaign-finished', {
       sent: this.currentCampaign.sent,
       failed: this.currentCampaign.failed,
@@ -202,7 +204,7 @@ export class WhatsAppService {
     });
   }
 
-  async sendMessage(contact, imagePath, audioPath, message) {
+  async sendMessage(contact, imagePath, audioPath, videoPath, message) {
     try {
       const phoneNumber = contact.number;
       const jid = phoneNumber + '@s.whatsapp.net';
@@ -212,32 +214,33 @@ export class WhatsAppService {
         throw new Error(`Número não existe no WhatsApp`);
       }
 
+      // Envia a imagem, se existir
       if (imagePath && fs.existsSync(imagePath)) {
-        const imageBuffer = fs.readFileSync(imagePath);
-        const extension = path.extname(imagePath).toLowerCase();
-        
-        let mimetype = 'image/jpeg';
-        if (extension === '.png') mimetype = 'image/png';
-        else if (extension === '.gif') mimetype = 'image/gif';
-        else if (extension === '.webp') mimetype = 'image/webp';
-        
         await this.sock.sendMessage(jid, {
-          image: imageBuffer,
-          caption: message,
-          mimetype: mimetype
+          image: fs.readFileSync(imagePath),
+          caption: message
         });
       }
 
-      if (audioPath && fs.existsSync(audioPath)) {
-        const audioBuffer = fs.readFileSync(audioPath);
+      // Envia o vídeo, se existir
+      if (videoPath && fs.existsSync(videoPath)) {
         await this.sock.sendMessage(jid, {
-          audio: audioBuffer,
+          video: fs.readFileSync(videoPath),
+          caption: message
+        });
+      }
+
+      // Envia o áudio, se existir
+      if (audioPath && fs.existsSync(audioPath)) {
+        await this.sock.sendMessage(jid, {
+          audio: fs.readFileSync(audioPath),
           mimetype: 'audio/mp4',
           ptt: true
         });
       }
 
-      if (!imagePath && !audioPath && message && message.trim() !== '') {
+      // Se NENHUMA mídia foi enviada, envia só o texto
+      if (!imagePath && !videoPath && !audioPath && message && message.trim() !== '') {
         await this.sock.sendMessage(jid, {
           text: message
         });
@@ -249,6 +252,63 @@ export class WhatsAppService {
       throw new Error(`Falha no envio: ${error.message}`);
     }
   }
+
+  // async sendMessage(contact, imagePath, audioPath, videoPath, message) {
+  //   try {
+  //     const phoneNumber = contact.number;
+  //     const jid = phoneNumber + '@s.whatsapp.net';
+  //
+  //     const [result] = await this.sock.onWhatsApp(jid);
+  //     if (!result?.exists) {
+  //       throw new Error(`Número não existe no WhatsApp`);
+  //     }
+  //
+  //     if (imagePath && fs.existsSync(imagePath)) {
+  //       const imageBuffer = fs.readFileSync(imagePath);
+  //       const extension = path.extname(imagePath).toLowerCase();
+  //
+  //       let mimetype = 'image/jpeg';
+  //       if (extension === '.png') mimetype = 'image/png';
+  //       else if (extension === '.gif') mimetype = 'image/gif';
+  //       else if (extension === '.webp') mimetype = 'image/webp';
+  //
+  //       await this.sock.sendMessage(jid, {
+  //         image: imageBuffer,
+  //         caption: message,
+  //         mimetype: mimetype
+  //       });
+  //     }
+  //
+  //     if (audioPath && fs.existsSync(audioPath)) {
+  //       const audioBuffer = fs.readFileSync(audioPath);
+  //       await this.sock.sendMessage(jid, {
+  //         audio: audioBuffer,
+  //         mimetype: 'audio/mp4',
+  //         ptt: true
+  //       });
+  //     }
+  //
+  //     if (videoPath && fs.existsSync(videoPath)) {
+  //       const videoBuffer = fs.readFileSync(videoPath);
+  //       await this.sock.sendMessage(jid, {
+  //         video: videoBuffer,
+  //         caption: message,
+  //         mimetype: 'video/mp4' // Usando um mimetype comum
+  //       });
+  //     }
+  //
+  //     if (!imagePath && !audioPath && message && message.trim() !== '') {
+  //       await this.sock.sendMessage(jid, {
+  //         text: message
+  //       });
+  //     }
+  //
+  //     return true;
+  //
+  //   } catch (error) {
+  //     throw new Error(`Falha no envio: ${error.message}`);
+  //   }
+  // }
 
   stopBulkSend() {
     console.log('🛑 Parando campanha...');

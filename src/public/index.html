@@ -412,6 +412,14 @@
                    </div>
                    <input type="file" id="image-input" class="file-input" accept="image/*" onchange="uploadImage(this)">
                </div>
+              <div class="upload-card" onclick="document.getElementById('video-input').click()" data-tooltip="Vídeo a ser enviado (MP4)">
+                  <div class="upload-icon">🎥</div>
+                  <div class="upload-title">Upload Vídeo</div>
+                  <div class="upload-status" id="video-status">
+                      Selecione arquivo de vídeo (MP4)
+                  </div>
+                  <input type="file" id="video-input" class="file-input" accept="video/*" onchange="uploadVideo(this)">
+              </div>
            </div>
 
            <div class="message-section">
@@ -631,6 +639,44 @@
            updateStartButton();
        }
 
+          let videoUploaded = false;
+          const videoStatus = document.getElementById('video-status');
+
+          async function uploadVideo(input) {
+              const file = input.files[0];
+              if (!file) return;
+
+              const formData = new FormData();
+              formData.append('video', file);
+
+            try {
+                videoStatus.textContent = 'Enviando...';
+                document.querySelector('#video-input').closest('.upload-card').classList.remove('uploaded');
+
+              const response = await fetch('/upload-video', {
+                  method: 'POST',
+                  body: formData
+              });
+
+              const result = await response.json();
+
+              if (result.success) {
+                  videoStatus.textContent = `✅ ${file.name} (${result.size})`;
+                  document.querySelector('#video-input').closest('.upload-card').classList.add('uploaded');
+                  videoUploaded = true;
+                  addLog(`🎥 Vídeo carregado: ${file.name} (${result.size})`, 'success');
+              } else {
+                  videoStatus.textContent = '❌ ' + result.error;
+                  addLog('❌ Erro no vídeo: ' + result.error, 'error');
+              }
+          } catch (error) {
+              videoStatus.textContent = '❌ Erro ao enviar vídeo';
+              addLog('❌ Erro ao fazer upload do vídeo: ' + error.message, 'error');
+          }
+          
+          updateStartButton();
+      }
+
        let audioUploaded = false;
        const audioStatus = document.getElementById('audio-status');
 
@@ -736,9 +782,12 @@
        }
 
        function updateStartButton() {
-           const canStart = isConnected && csvUploaded && (imageUploaded || audioUploaded) && 
-                           messageText.value.trim().length > 0 && !campaignRunning;
-           startBtn.disabled = !canStart;
+           
+        const messageOk = messageText.value.trim().length > 0;
+        const mediaOk = imageUploaded || audioUploaded || videoUploaded;
+
+        const canStart = isConnected && csvUploaded && mediaOk && messageOk && !campaignRunning;
+        startBtn.disabled = !canStart;
        }
 
        function updateProgress(data) {

@@ -44,10 +44,10 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
+    fileSize: 30 * 1024 * 1024 // 10MB
   }
 });
 
@@ -59,6 +59,7 @@ const csvService = new CSVService();
 let uploadedCSV = null;
 let uploadedImage = null;
 let uploadedAudio = null;
+let uploadedVideo = null;
 
 // Rotas
 app.get('/', (req, res) => {
@@ -74,7 +75,7 @@ app.post('/upload-csv', upload.single('csv'), async (req, res) => {
 
     const contacts = await csvService.parseCSV(req.file.path);
     const validation = csvService.validateContacts(contacts);
-    
+
     uploadedCSV = {
       path: req.file.path,
       contacts: validation.valid,
@@ -83,8 +84,8 @@ app.post('/upload-csv', upload.single('csv'), async (req, res) => {
       invalidContacts: validation.invalid
     };
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `${validation.valid.length} números válidos de ${contacts.length} total`,
       validContacts: validation.valid.length,
       invalidContacts: validation.invalid,
@@ -109,8 +110,8 @@ app.post('/upload-image', upload.single('image'), (req, res) => {
       mimetype: req.file.mimetype
     };
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Imagem carregada com sucesso',
       filename: req.file.filename,
       size: (req.file.size / 1024 / 1024).toFixed(2) + 'MB'
@@ -134,8 +135,8 @@ app.post('/upload-audio', upload.single('audio'), (req, res) => {
       mimetype: req.file.mimetype
     };
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Áudio carregado com sucesso',
       filename: req.file.filename,
       size: (req.file.size / 1024 / 1024).toFixed(2) + 'MB'
@@ -146,6 +147,30 @@ app.post('/upload-audio', upload.single('audio'), (req, res) => {
   }
 });
 
+app.post('/upload-video', upload.single('video'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum vídeo enviado' });
+    }
+
+    uploadedVideo = {
+      path: req.file.path,
+      filename: req.file.filename,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    };
+
+    res.json({
+      success: true,
+      message: 'Vídeo carregado com sucesso',
+      filename: req.file.filename,
+      size: (req.file.size / 1024 / 1024).toFixed(2) + 'MB'
+    });
+  } catch (error) {
+    console.error('Erro ao processar vídeo:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.post('/start-campaign', async (req, res) => {
   try {
@@ -155,9 +180,9 @@ app.post('/start-campaign', async (req, res) => {
       return res.status(400).json({ error: 'CSV não carregado' });
     }
 
-    if (!uploadedImage && !uploadedAudio) {
-      return res.status(400).json({ error: 'Imagem ou áudio não carregado' });
-    }
+    // if (!uploadedImage && !uploadedAudio) {
+    //   return res.status(400).json({ error: 'Imagem ou áudio não carregado' });
+    // }
 
     if (!message || message.trim().length === 0) {
       return res.status(400).json({ error: 'Mensagem é obrigatória' });
@@ -168,11 +193,17 @@ app.post('/start-campaign', async (req, res) => {
     }
 
     // Inicia a campanha
-    await whatsappService.startBulkSend(uploadedCSV.contacts, uploadedImage?.path, uploadedAudio?.path, message.trim());
-    
-    res.json({ 
-      success: true, 
-      message: `Campanha iniciada para ${uploadedCSV.validContacts} contatos válidos` 
+    await whatsappService.startBulkSend(
+      uploadedCSV.contacts,
+      uploadedImage?.path,
+      uploadedAudio?.path,
+      uploadedVideo?.path,
+      message.trim()
+    );
+
+    res.json({
+      success: true,
+      message: `Campanha iniciada para ${uploadedCSV.validContacts} contatos válidos`
     });
   } catch (error) {
     console.error('Erro ao iniciar campanha:', error);
@@ -193,12 +224,12 @@ app.post('/stop-campaign', async (req, res) => {
 // Socket.IO eventos
 io.on('connection', (socket) => {
   console.log(`🔌 Cliente conectado: ${socket.id}`);
-  
+
   // Envia status atual do WhatsApp
-  socket.emit('connection-status', { 
-    status: whatsappService.isConnected ? 'connected' : 'disconnected' 
+  socket.emit('connection-status', {
+    status: whatsappService.isConnected ? 'connected' : 'disconnected'
   });
-  
+
   socket.on('disconnect', () => {
     console.log(`🔌 Cliente desconectado: ${socket.id}`);
   });
